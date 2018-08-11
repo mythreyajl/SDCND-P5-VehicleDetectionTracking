@@ -67,18 +67,38 @@ def extract_features(path, orient=9, pix_per_cell=8, cell_per_block=2, nbins=32,
 
     for im_path in glob(path+"/*.png"):
         img = cv2.imread(im_path)
-        YCrCb = convert_format(img, 'YCrCb')
-        Y = YCrCb[:, :, 0]
+        # RGB = img
+        # YCrCb = convert_format(img, 'YCrCb')
         HSV = convert_format(img, 'HSV')
+        # HLS = convert_format(img, 'HLS')
+        # YUV = convert_format(img, 'YUV')
+        # LUV = convert_format(img, 'LUV')
+        # RGB = convert_format(img, 'RGB')
 
-        h_feature = extract_hog(img=Y, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
-        c_feature = extract_color_histogram(img=YCrCb, nbins=nbins)
+        h_feature = extract_hog(img=HSV, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+        c_feature = extract_color_histogram(img=HSV, nbins=nbins)
         s_feature = extract_spatial(img=HSV[:, :, 0], size=size)
         feature = np.concatenate((h_feature, c_feature, s_feature))
 
         features.append(feature)
 
     return features
+
+
+def extract_all_features(car_dir, non_car_dir):
+    car_features = []
+    non_car_features = []
+    walk_v = os.walk(car_dir)
+    for dir in list(walk_v)[1:]:
+        features = extract_features(dir[0])
+        car_features += features
+
+    walk_n = os.walk(non_car_dir)
+    for dir in list(walk_n)[1:]:
+        features = extract_features(dir[0])
+        non_car_features += features
+
+    return car_features, non_car_features
 
 
 def save_features(car_feats, non_car_feats):
@@ -102,18 +122,7 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    car_features = []
-    non_car_features = []
-    walk_v = os.walk(args.vpath)
-    for dir in list(walk_v)[1:]:
-        features = extract_features(dir[0])
-        car_features += features
-
-    walk_n = os.walk(args.npath)
-    for dir in list(walk_n)[1:]:
-        features = extract_features(dir[0])
-        non_car_features += features
+    cf, ncf = extract_features(args.vpath, args.npath)
 
     if args.save:
-        save_features(car_features, non_car_features)
-
+        save_features(cf, ncf)

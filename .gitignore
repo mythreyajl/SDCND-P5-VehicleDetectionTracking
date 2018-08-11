@@ -1,4 +1,5 @@
 *.p
+.idea
 vehicles
 non-vehicles
 .DS_Store
