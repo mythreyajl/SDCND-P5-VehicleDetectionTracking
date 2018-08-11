@@ -1,0 +1,5 @@
+*.p
+vehicles
+non-vehicles
+.DS_Store
+__pycache__
