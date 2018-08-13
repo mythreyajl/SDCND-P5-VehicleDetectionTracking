@@ -29,11 +29,11 @@ def build_classifier(car, non_car, path=None):
     # Classifier
     svm = LinearSVC()
     svm.fit(X_train, y_train)
-    data = {"model": svm, "X_train": X_train, "X_test": X_test, "y_train": y_train, "y_test": y_test}
+    data = {"model": svm, "X_scaler": X_scaler, "X_test": X_test, "y_test": y_test}
     if path and not os.path.isfile(path):
         pickle.dump(data, open(path, 'wb'))
 
-    return svm, X_train, X_test, y_train, y_test
+    return svm, X_test, y_test, X_scaler
 
 
 def parse_args():
@@ -58,7 +58,7 @@ if __name__ == '__main__':
         non_car = data["non-car"]
 
     if not os.path.isfile(args.mpath):
-        svm, _, _, y_train, y_test = build_classifier(car, non_car, 'train.p')
+        svm, X_test, y_test, X_scaler = build_classifier(car, non_car, 'train.p')
     else:
         train = pickle.load(open(args.mpath, 'rb'))
         svm = train["model"]

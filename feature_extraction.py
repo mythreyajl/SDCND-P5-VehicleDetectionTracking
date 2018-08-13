@@ -24,9 +24,9 @@ def convert_format(img, fmt):
     return img
 
 
-def extract_spatial(img, size=(32, 32)):
+def extract_spatial(img, spatial_size=(32, 32)):
 
-    features = cv2.resize(img, size).ravel()
+    features = cv2.resize(img, spatial_size).ravel()
     return features
 
 
@@ -61,18 +61,18 @@ def extract_hog(img, orient=9, pix_per_cell=8, cell_per_block=2):
     return features
 
 
-def extract_features(img, orient=9, pix_per_cell=8, cell_per_block=2, nbins=32, size=(32, 32)):
+def extract_features(img, orient=9, pix_per_cell=8, cell_per_block=2, nbins=32, spatial_size=(32, 32)):
     # RGB = img
     # YCrCb = convert_format(img, 'YCrCb')
     HSV = convert_format(img, 'HSV')
     # HLS = convert_format(img, 'HLS')
-    # YUV = convert_format(img, 'YUV')
+    YUV = convert_format(img, 'YUV')
     # LUV = convert_format(img, 'LUV')
     # RGB = convert_format(img, 'RGB')
 
-    h_feature = extract_hog(img=HSV, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+    h_feature = extract_hog(img=YUV[:, :, 0], orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
     c_feature = extract_color_histogram(img=HSV, nbins=nbins)
-    s_feature = extract_spatial(img=HSV[:, :, 0], size=size)
+    s_feature = extract_spatial(img=HSV[:, :, 0], spatial_size=spatial_size)
 
     return np.concatenate((h_feature, c_feature, s_feature))
 
@@ -126,7 +126,7 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    cf, ncf = extract_features(args.vpath, args.npath)
+    cf, ncf = extract_all_features(args.vpath, args.npath)
 
     if args.save:
         save_features(cf, ncf)
