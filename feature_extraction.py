@@ -40,7 +40,7 @@ def extract_color_histogram(img, nbins=32, bins_range=(0, 256)):
     return features
 
 
-def extract_hog(img, orient=9, pix_per_cell=8, cell_per_block=2):
+def extract_hog(img, orient=9, pix_per_cell=8, cell_per_block=2, feature_vector=True):
 
     if len(img.shape) < 3 or img.shape[-1] == 1:
         features = hog(img, orientations=orient,
