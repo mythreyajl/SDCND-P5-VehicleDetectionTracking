@@ -55,11 +55,11 @@ def search_in_windows(img, windows, model, scaler, spatial_size=(32, 32), nbins=
 
 
 # Define a single function that can extract features using hog sub-sampling and make predictions
-def find_cars(img, ystart, ystop, scale, model, scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
+def find_cars(img, ystart, ystop, xstart, scale, model, scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
     draw_img = np.copy(img)
-    img = img.astype(np.float32) / 255
+    # img = img.astype(np.float32) / 255
 
-    img_tosearch = img[ystart:ystop, :, :]
+    img_tosearch = img[ystart:ystop, xstart:, :]
     ctrans_tosearch = convert_format(img_tosearch, fmt='YCrCb')
     if scale != 1:
         imshape = ctrans_tosearch.shape
@@ -82,20 +82,25 @@ def find_cars(img, ystart, ystop, scale, model, scaler, orient, pix_per_cell, ce
     nysteps = (nyblocks - nblocks_per_window) // cells_per_step + 1
 
     # Compute individual channel HOG features for the entire image
-    hog1 = extract_hog(ch1, orient, pix_per_cell, cell_per_block, feature_vector=False)
-    hog2 = extract_hog(ch2, orient, pix_per_cell, cell_per_block, feature_vector=False)
-    hog3 = extract_hog(ch3, orient, pix_per_cell, cell_per_block, feature_vector=False)
+    hog1, im1 = extract_hog(ch1, orient, pix_per_cell, cell_per_block, feature_vector=False)
+    hog2, im2 = extract_hog(ch2, orient, pix_per_cell, cell_per_block, feature_vector=False)
+    hog3, im3 = extract_hog(ch3, orient, pix_per_cell, cell_per_block, feature_vector=False)
 
-    for xb in range(nxsteps):
-        for yb in range(nysteps):
-            ypos = yb * cells_per_step
-            xpos = xb * cells_per_step
+    windows = []
+    for xb in range(2*nxsteps-1):
+        for yb in range(2*nysteps-1):
+            ypos = yb
+            xpos = xb
 
             # Extract HOG for this patch
             hog_feat1 = hog1[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
             hog_feat2 = hog2[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
-            hog_feat3 = hog3[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
+            hog_feat3 = hog3[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()            
             hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+
+            hog_features_show = np.hstack((im1[ypos:ypos + 64, xpos:xpos + 64],
+                                           im2[ypos:ypos + 64, xpos:xpos + 64],
+                                           im3[ypos:ypos + 64, xpos:xpos + 64]))
 
             xleft = xpos * pix_per_cell
             ytop = ypos * pix_per_cell
@@ -108,8 +113,8 @@ def find_cars(img, ystart, ystop, scale, model, scaler, orient, pix_per_cell, ce
             hist_features = extract_color_histogram(subimg, nbins=hist_bins)
 
             # Scale features and make a prediction
-            test_features = X_scaler.transform(
-                np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))
+            # test_features = scaler.transform(np.concatenate((hog_features, hist_features, spatial_features)).reshape(1,-1))
+            test_features = scaler.transform(np.hstack((hog_features, hist_features, spatial_features)).reshape(1, -1))
             # test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))
             test_prediction = model.predict(test_features)
 
@@ -117,10 +122,15 @@ def find_cars(img, ystart, ystop, scale, model, scaler, orient, pix_per_cell, ce
                 xbox_left = np.int(xleft * scale)
                 ytop_draw = np.int(ytop * scale)
                 win_draw = np.int(window * scale)
-                cv2.rectangle(draw_img, (xbox_left, ytop_draw + ystart),
-                              (xbox_left + win_draw, ytop_draw + win_draw + ystart), (0, 0, 255), 6)
+                cv2.rectangle(draw_img, (xbox_left + xstart, ytop_draw + ystart),
+                              (xbox_left + win_draw + xstart, ytop_draw + win_draw + ystart), (0, 0, 255), 6)
+                windows.append(((xbox_left + xstart, ytop_draw + ystart), (xbox_left + win_draw + xstart, ytop_draw + win_draw + ystart)))
 
-    return draw_img
+                # cv2.imshow('hog', 255 * (hog_features_show / np.max(hog_features_show)))
+                # cv2.imshow('img', img[ytop_draw + ystart:ytop_draw + ystart + win_draw, xbox_left + xstart: xbox_left + win_draw + xstart, :])
+                # cv2.waitKey(0)
+
+    return windows
 
 
 def draw_labeled_bboxes(img, labels):
@@ -142,11 +152,12 @@ def draw_labeled_bboxes(img, labels):
     return img
 
 
-def heat_map(heatmap, windows, threshold):
+def heat_map(heatmap, windows, ratio):
 
     for window in windows:
         heatmap[window[0][1]:window[1][1], window[0][0]:window[1][0]] += 1
-    heatmap[heatmap <= threshold] = 0
+    maximum = np.max(heatmap)
+    heatmap[heatmap <= maximum*ratio] = 0
     all_labels = label(heatmap)
     return all_labels
 
@@ -159,10 +170,7 @@ def parse_args():
     parser.add_argument('-s', '--save', dest='save', help='save outputs', action='store_true', default='True')
     arguments = parser.parse_args()
 
-    if not arguments.vpath or not arguments.npath:
-        argparse.ArgumentError('No path to vehicles provided')
-
-    return args
+    return arguments
 
 
 if __name__ == '__main__':
@@ -175,24 +183,44 @@ if __name__ == '__main__':
 
     # Load model
     if not os.path.isfile('train.p'):
-        svm, X_test, y_test, X_scaler = build_classifier(car, non_car, 'train.p')
+        svm, X_test, y_test, X_scaler = build_classifier(args.vpath, args.npath, 'train.p')
     else:
         train = pickle.load(open('train.p', 'rb'))  #
         svm = train["model"]
         X_test = train["X_test"]
         y_test = train["y_test"]
-        X_scaler = train["X_scaler"]
+        scaler = train["X_scaler"]
 
     for filename in files:
         image = cv2.imread(filename)
-        windows = slide_window(image, x_start_stop=[np.int(8*image.shape[0]/16), None],
-                               y_start_stop=[0, None], xy_window=(64, 64), xy_overlap=(0.5, 0.5))
+
+        windows = find_cars(np.copy(image), ystart=380, ystop=500, xstart=600, scale=1, model=svm, scaler=scaler,
+                            orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
+
+        windows += find_cars(np.copy(image), ystart=400, ystop=600, xstart=600, scale=1.5, model=svm, scaler=scaler,
+                            orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
+
+        windows += find_cars(np.copy(image), ystart=400, ystop=656, xstart=600, scale=2, model=svm, scaler=scaler,
+                            orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
+
+        #windows += find_cars(np.copy(image), ystart=500, ystop=656, scale=3, model=svm, scaler=scaler,
+        #                    orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
+
+        # windows = slide_window(image, x_start_stop=[400, 656],
+        #                        y_start_stop=[600, None], xy_window=(80, 80), xy_overlap=(0.75, 0.75))
 
         # Run model on target image
-        good_wins = search_in_windows(img=image, windows=windows, model=svm, scaler=X_scaler)
+        # windows = slide_window(image,
+        #                       x_start_stop=[600, None],
+        #                       y_start_stop=[400, 656])
+        # windows = search_in_windows(img=image, windows=windows, model=svm, scaler=scaler)
+
+        # windows = find_cars(image, ystart=400, ystop=656, scale=1, model=svm, scaler=scaler,
+        #           orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
         heat = np.zeros_like(image[:, :, 0]).astype(np.float)
-        labels = heat_map(heat, good_wins, 1)
-        # overlaid = draw_boxes(image, good_wins)
+        labels = heat_map(heat, windows, 0.25)
+
+        #overlaid = draw_boxes(image, windows)
 
         # Display results
         overlaid = draw_labeled_bboxes(np.copy(image), labels)
