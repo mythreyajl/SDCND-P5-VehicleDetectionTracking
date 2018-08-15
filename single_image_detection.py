@@ -57,7 +57,6 @@ def search_in_windows(img, windows, model, scaler, spatial_size=(32, 32), nbins=
 # Define a single function that can extract features using hog sub-sampling and make predictions
 def find_cars(img, ystart, ystop, xstart, scale, model, scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
     draw_img = np.copy(img)
-    # img = img.astype(np.float32) / 255
 
     img_tosearch = img[ystart:ystop, xstart:, :]
     ctrans_tosearch = convert_format(img_tosearch, fmt='YCrCb')
@@ -113,9 +112,7 @@ def find_cars(img, ystart, ystop, xstart, scale, model, scaler, orient, pix_per_
             hist_features = extract_color_histogram(subimg, nbins=hist_bins)
 
             # Scale features and make a prediction
-            # test_features = scaler.transform(np.concatenate((hog_features, hist_features, spatial_features)).reshape(1,-1))
             test_features = scaler.transform(np.hstack((hog_features, hist_features, spatial_features)).reshape(1, -1))
-            # test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))
             test_prediction = model.predict(test_features)
 
             if test_prediction == 1:
@@ -125,10 +122,6 @@ def find_cars(img, ystart, ystop, xstart, scale, model, scaler, orient, pix_per_
                 cv2.rectangle(draw_img, (xbox_left + xstart, ytop_draw + ystart),
                               (xbox_left + win_draw + xstart, ytop_draw + win_draw + ystart), (0, 0, 255), 6)
                 windows.append(((xbox_left + xstart, ytop_draw + ystart), (xbox_left + win_draw + xstart, ytop_draw + win_draw + ystart)))
-
-                # cv2.imshow('hog', 255 * (hog_features_show / np.max(hog_features_show)))
-                # cv2.imshow('img', img[ytop_draw + ystart:ytop_draw + ystart + win_draw, xbox_left + xstart: xbox_left + win_draw + xstart, :])
-                # cv2.waitKey(0)
 
     return windows
 
@@ -203,24 +196,9 @@ if __name__ == '__main__':
         windows += find_cars(np.copy(image), ystart=400, ystop=656, xstart=600, scale=2, model=svm, scaler=scaler,
                             orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
 
-        #windows += find_cars(np.copy(image), ystart=500, ystop=656, scale=3, model=svm, scaler=scaler,
-        #                    orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
-
-        # windows = slide_window(image, x_start_stop=[400, 656],
-        #                        y_start_stop=[600, None], xy_window=(80, 80), xy_overlap=(0.75, 0.75))
-
-        # Run model on target image
-        # windows = slide_window(image,
-        #                       x_start_stop=[600, None],
-        #                       y_start_stop=[400, 656])
-        # windows = search_in_windows(img=image, windows=windows, model=svm, scaler=scaler)
-
-        # windows = find_cars(image, ystart=400, ystop=656, scale=1, model=svm, scaler=scaler,
-        #           orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
         heat = np.zeros_like(image[:, :, 0]).astype(np.float)
         labels = heat_map(heat, windows, 0.25)
 
-        #overlaid = draw_boxes(image, windows)
 
         # Display results
         overlaid = draw_labeled_bboxes(np.copy(image), labels)
