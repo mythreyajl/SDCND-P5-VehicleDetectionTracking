@@ -187,18 +187,17 @@ if __name__ == '__main__':
     for filename in files:
         image = cv2.imread(filename)
 
-        windows = find_cars(np.copy(image), ystart=380, ystop=500, xstart=600, scale=1, model=svm, scaler=scaler,
+        windows = find_cars(np.copy(image), ystart=380, ystop=656, xstart=600, scale=1, model=svm, scaler=scaler,
                             orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
 
         windows += find_cars(np.copy(image), ystart=400, ystop=600, xstart=600, scale=1.5, model=svm, scaler=scaler,
                             orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
-
+        """
         windows += find_cars(np.copy(image), ystart=400, ystop=656, xstart=600, scale=2, model=svm, scaler=scaler,
                             orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
-
+        """
         heat = np.zeros_like(image[:, :, 0]).astype(np.float)
-        labels = heat_map(heat, windows, 0.25)
-
+        labels = heat_map(heat, windows, 0.2)
 
         # Display results
         overlaid = draw_labeled_bboxes(np.copy(image), labels)
