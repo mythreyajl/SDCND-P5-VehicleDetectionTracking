@@ -3,7 +3,10 @@ import cv2
 import numpy as np
 from classifier import *
 from scipy.ndimage.measurements import label
+from moviepy.editor import VideoFileClip
 
+
+count = 0
 
 def draw_boxes(img, boxes, color=(255, 0, 0), thickness=2):
 
@@ -139,6 +142,13 @@ def draw_labeled_bboxes(img, labels):
         # Define a bounding box based on min/max x and y
         bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
 
+        w = np.absolute(bbox[0][0]-bbox[1][0])
+        h = np.absolute(bbox[0][1]-bbox[1][1])
+        area = w*h
+        ratio = max(w, h) / min(w, h)
+        if area < 625 or ratio > 8:
+            continue
+
         # Draw the box on the image
         cv2.rectangle(img, bbox[0], bbox[1], (255, 0, 0), 6)
 
@@ -146,11 +156,12 @@ def draw_labeled_bboxes(img, labels):
 
 
 def heat_map(heatmap, windows, ratio):
-
+    global count
     for window in windows:
         heatmap[window[0][1]:window[1][1], window[0][0]:window[1][0]] += 1
     maximum = np.max(heatmap)
-    heatmap[heatmap <= maximum*ratio] = 0
+    # print("Frame#{} Maximum: {}".format(count, maximum))
+    heatmap[heatmap <= max(np.int(10 ), int(maximum*ratio))] = 0
     all_labels = label(heatmap)
     return all_labels
 
@@ -164,6 +175,30 @@ def parse_args():
     arguments = parser.parse_args()
 
     return arguments
+
+
+def single_image_detection(image, model, scaler, save=False):
+
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+    windows = find_cars(np.copy(image), ystart=380, ystop=550, xstart=600, scale=1, model=model, scaler=scaler,
+                        orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
+
+    windows += find_cars(np.copy(image), ystart=400, ystop=656, xstart=600, scale=1.5, model=model, scaler=scaler,
+                         orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
+
+    heat = np.zeros_like(image[:, :, 0]).astype(np.float)
+    labels = heat_map(heat, windows, ratio=0.3)
+
+    # Display results
+    overlaid = draw_labeled_bboxes(np.copy(image), labels)
+    if save:
+        global count
+        #cv2.imwrite("./output_images/image_" + str(count) + ".jpg", overlaid)
+        count += 1
+    overlaid = cv2.cvtColor(overlaid, cv2.COLOR_BGR2RGB)
+
+    return overlaid
 
 
 if __name__ == '__main__':
@@ -192,10 +227,7 @@ if __name__ == '__main__':
 
         windows += find_cars(np.copy(image), ystart=400, ystop=600, xstart=600, scale=1.5, model=svm, scaler=scaler,
                             orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
-        """
-        windows += find_cars(np.copy(image), ystart=400, ystop=656, xstart=600, scale=2, model=svm, scaler=scaler,
-                            orient=9, pix_per_cell=8, cell_per_block=2, spatial_size=(32, 32), hist_bins=32)
-        """
+
         heat = np.zeros_like(image[:, :, 0]).astype(np.float)
         labels = heat_map(heat, windows, 0.2)
 
