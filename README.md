@@ -45,25 +45,23 @@ Below are example vehicle and non-vehicle images
 
 ![alt text][image2]
 
-After experimenting with several color spaces - which you could see from the options in the function `convert_format` in `feature_extraction.py` in lines 11-24 - I settled on using YCrCb as my color space of choice for extracting HOG features. I used 9 orientation bins and 8x8 pixels per cell and 2x2 cels per block. 
+After experimenting with several color spaces - which you could see from the options in the function `convert_format` in `feature_extraction.py` in lines 11-24 - I settled on using `YCrCb` as my color space of choice for extracting HOG features. I used `9` orientation bins and `8x8` pixels per cell and `2x2` cels per block. 
 
-Here is an example of the HOG features using the `YCrCb` color space and parameters of `orientations=9`, `pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)`. The top-left image corresponds to the YCrCb image, the top-right to the Y-channel HOG features, the bottom-left to the Cr-channel HOG features and the bottom-left to the Cb-channel HOG features.
+Below is an example of HOG features for a vehicle.
 
 ![alt text][image3]
 
 #### 2. Explain how you settled on your final choice of HOG parameters.
-
+After trying several HOG parameters, I realized that the best discriminating power that I obtained - `~98.90% accuracy in validation set` - was using a feature descriptor with all channels of a YCrCb image with parameters described in the above section. Also, I used a 32-bin color histogram of the `YCrCb` channels and a spatial histogram of the same color space. Overall, this was an `8000+D` feature descriptor.   
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
-
+In the `feature_extraction.py` function, I gathered functions to extract features, these are used in the main method in `feature_extraction.py` to extract features from all car and non-car images in the training/vaidation set. The main function in this script extracts features from images in every subfolder within the `vehicles` and `non-vehicles` folder. The `classify.py` uses pre-extracted features from the previous step to build a `LinearSVC` classifier and estimate the validation accuracy. This is then stored as a pickle file - `train.p` - which is used in the vehicle detection and tracking project.
 
 
 ### Sliding Window Search
 
 #### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
-
-
-![alt text][image3]
+The `find_cars` function in `single_image_detection.py` contains the code to implement a sliding window based search for potential cars between `lines 61-129`. Initially the vehicle detections were very inaccurate. To fix this, I increased the overlap ratio by a factor of two following which I had better detections. The detections were then improved tremendously when I started searching for a scaling factor of 1.5 in addition to searching in the base scale. For improving the time complexity, the search was conducted only for the right half of the screen between the y-coordinates of 400 and 656 pixels.
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
@@ -79,21 +77,11 @@ Here's a [link to my video result](./output_project_video_tracking.mp4)
 
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
+In the video pipeline, I have two modules to take care of false positives: using the heatmap to eliminate false positives and using temporal consistensy to eliminate stray false positive bounding boxes.
 
-I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
+In the functions `heat_map` between lines `158 and 166` in `single_image_detection.py` and `draw_stable_bboxes` between lines `124 and 149` in `video_detection_and_tracking.py`, I extract the heatmap of the vehicle detections by accumulating the votes for every pixel position in the image. Then, I find the highest values and find an optimum threshold which is the greater of the value 10 or 20% of the maximum votes for the image. Then, the `draw_stable_bboxes` function extracts the exact bounds of the bounding boxes for blobs that have votes more than the threshold.
 
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
-
-### Here are six frames and their corresponding heatmaps:
-
-![alt text][image5]
-
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
-
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
-
+Following this, I use the bounding boxes to either add to trackings of previously detected bounding boxes or generate new trackings. This pipeline is in between lines `46 and 121` in `video_detection_and_tracking.py` where I create and manage tracks. I perform data association by using the intersection-of-union measure and find tracks to associate with. If a bounding box appears only in one image with no successor or predecesor, it is discarded. If a bounding box is plausible and it has the bounds for the previous frame. That vehicles bounds are represented as the median values for each one of the 4 2-D bounds. This brought about a great deal of stability in the video pipeline and got rid of false positives in single frames.  
 
 
 ---
