@@ -72,7 +72,6 @@ After extraction of HOG features for positive and negative samples and training 
 * From the bounding boxes, a heat map is produced as shown below by accumulating votes per pixel location:
 
 ![alt text][image5]
-
 * Each new bounding box is checked against previous 10 frames' bounding boxes to find vehicle associations. From the last 10 frames' bounding boxes, the median value for the top, bottom, left and right are used to find the final bounding box as shown below which are considered the final detection for that frame.
 
 ![alt text][image6]
